@@ -297,12 +297,15 @@ export class ElectrumClient extends Client {
 		return this.request("blockchain.scripthash.subscribe", [scripthash]);
 	}
 
-	blockchainBlock_getHeader(height: number) {
-		return this.request("blockchain.block.get_header", [height]);
+	blockchainScripthash_unsubscribe(scripthash: string) {
+		return this.request('blockchain.scripthash.unsubscribe', [scripthash]);
 	}
 
-	blockchainBlock_headers(start_height: number, count: number) {
-		return this.request("blockchain.block.headers", [start_height, count]);
+	blockchainBlock_header(height: number, cp_height: number = 0) {
+		return this.request('blockchain.block.header', [height, cp_height]);
+	}
+	blockchainBlock_headers(start_height: number, count: number, cp_height: number = 0) {
+		return this.request('blockchain.block.headers', [start_height, count, cp_height]);
 	}
 
 	blockchainEstimatefee(number: number) {
@@ -331,6 +334,14 @@ export class ElectrumClient extends Client {
 
 	blockchainTransaction_getMerkle(tx_hash: string, height: number) {
 		return this.request("blockchain.transaction.get_merkle", [tx_hash, height]);
+	}
+
+	blockchainTransaction_idFromPos(height: number, tx_pos: number, merkle = false) {
+		return this.request('blockchain.transaction.id_from_pos', [height, tx_pos, merkle]);
+	}
+
+	blockchainName_getValueProof(scripthash: string, cp_height: number) {
+		return this.request('blockchain.name.get_value_proof', [scripthash, cp_height]);
 	}
 
 	mempool_getFeeHistogram() {
@@ -374,4 +385,12 @@ export class ElectrumClient extends Client {
 	blockchainAddress_subscribe(address: string) {
 		return this.request("blockchain.address.subscribe", [address]);
 	}
+
+	// ---------------------------------
+	// protocol 1.3 deprecated method
+	// ---------------------------------
+	blockchainBlock_getHeader(height: number) {
+		return this.request('blockchain.block.get_header', [height]);
+	}
+
 }
