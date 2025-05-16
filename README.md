@@ -1,18 +1,19 @@
-# @samouraiwallet/electrum-client
-
+# electrumx-client
 Efficient and no-dependency Electrum Protocol client for Node.js.
-
+Updated protocol support to v1.4.3 
 This library uses ESModules, Node.js v18 or higher is required.
 
-# Based on
+# Forked from
+* https://github.com/Dojo-Open-Source-Project/electrum-client.git
 
+
+# Based on
 * https://github.com/mempool/electrum-client
 * https://github.com/you21979/node-electrum-client
 * https://github.com/7kharov/node-electrum-client
 * https://github.com/BlueWallet/rn-electrum-client
 
 # Features
-
 * No dependencies
 * Persistence (ping strategy and reconnection)
 * Batch requests
@@ -20,20 +21,19 @@ This library uses ESModules, Node.js v18 or higher is required.
 * Fully typed (Typescript)
 
 ## Protocol spec
-
-* https://electrumx.readthedocs.io/en/latest/PROTOCOL.html
+* https://electrum-protocol.readthedocs.io/en/latest
 
 ## Usage
 
 ```js
-import {ElectrumClient} from "@samouraiwallet/electrum-client";
+import {ElectrumClient} from "electrumx-client";
 
 const run = async () => {
     const tcpClient = await ElectrumClient.createClient({
         port: 60001,
         host: "btc.electroncash.dk",
         protocol: "tcp",
-        electrumConfig: { client: "electrum-client-js", version: ["1.2", "1.4"] },
+        electrumConfig: { client: "electrum-client-js", version: ["1.4.3"] },
         persistencePolicy: { retryPeriod: 2000 },
     });
 

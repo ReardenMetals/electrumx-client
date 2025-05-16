@@ -201,7 +201,7 @@ export abstract class Client {
 		if (Array.isArray(msg)) {
 			this.response(msg);
 		} else if (msg.id == null) {
-			this.subscribe.emit(msg.method, msg.params);
+			this.subscribe.emit(msg.method, ...msg.params);
 		} else {
 			this.response(msg);
 		}

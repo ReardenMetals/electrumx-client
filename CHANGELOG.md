@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.0 (2024-09-29)
+- Updated protocol version to 1.4.3
+- Fixed subscribe events
+
+# DOJO TEAM 
 ## 1.5.2 (2024-09-29)
 - Added `{rejectUnauthorized: false}` to TLSSocket
 

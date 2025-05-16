@@ -7,7 +7,7 @@ import type {
 	ElectrumRequestParams,
 	PersistencePolicy,
 	Protocol,
-} from "./types";
+} from "./types/index.js";
 
 export class ElectrumClient extends Client {
 	private readonly onConnectCallback:
