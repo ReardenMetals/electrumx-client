@@ -7,6 +7,7 @@ import type {
 	ElectrumRequestParams,
 	PersistencePolicy,
 	Protocol,
+	ServerDescriptor,
 } from "./types/index.js";
 
 export class ElectrumClient extends Client {
@@ -19,23 +20,39 @@ export class ElectrumClient extends Client {
 	private persistencePolicy: Required<PersistencePolicy>;
 	private electrumConfig: ElectrumConfig | null;
 	private pingInterval: NodeJS.Timeout | null;
+	private currentServerIndex: number;
+	private servers: ServerDescriptor[];
 	versionInfo: [string, string];
 
 	/**
 	 * Constructs an instance of ElectrumClient.
 	 *
-	 * @param {number} port - The port number to connect to.
-	 * @param {string} host - The host address to connect to.
+	 * @param {ServerDescriptor[]} servers - Array of server descriptors to connect to
 	 * @param {Protocol} protocol - The protocol to use for the connection.
 	 * @param {Callbacks} [callbacks] - Optional callbacks for connection events.
 	 */
 	constructor(
-		port: number,
-		host: string,
+		servers: ServerDescriptor[],
 		protocol: Protocol,
 		callbacks?: Callbacks,
 	) {
-		super(port, host, protocol, callbacks);
+		if (!servers || servers.length === 0) {
+			throw new Error("At least one server must be provided");
+		}
+
+		const validServers = servers.filter(server => 
+			server && server.host && server.port
+		);
+	
+		if (validServers.length === 0) {
+			throw new Error("No valid servers provided");
+		}
+
+		// Initialize with first server, we'll switch if needed
+		super(validServers[0]!.port, validServers[0]!.host, protocol, callbacks);
+
+		this.servers = validServers;
+		this.currentServerIndex = 0;
 
 		this.onConnectCallback = callbacks?.onConnect ?? null;
 		this.onCloseCallback = callbacks?.onClose ?? null;
@@ -61,9 +78,8 @@ export class ElectrumClient extends Client {
 	/**
 	 * Creates an instance of ElectrumClient and initializes it with the provided configuration.
 	 *
-	 * @param {CreateClientParams} params - The parameters required to create and initialize the client.
-	 * @param {number} params.port - The port number to connect to.
-	 * @param {string} params.host - The host address to connect to.
+	 * @param {Omit<CreateClientParams, 'port' | 'host'> & {servers: ServerDescriptor[]}} params - The parameters required to create and initialize the client.
+	 * @param {ServerDescriptor[]} params.servers - Array of server descriptors to connect to
 	 * @param {Protocol} params.protocol - The protocol to use for the connection.
 	 * @param {Callbacks} [params.callbacks] - Optional callbacks for connection events.
 	 * @param {ElectrumConfig} params.electrumConfig - The Electrum configuration to use.
@@ -71,15 +87,30 @@ export class ElectrumClient extends Client {
 	 *
 	 * @returns {Promise<ElectrumClient>} A promise that resolves to an initialized ElectrumClient instance.
 	 */
-	static createClient(params: CreateClientParams): Promise<ElectrumClient> {
+	static createClient(
+		params: Omit<CreateClientParams, "port" | "host"> & { servers: ServerDescriptor[] },
+	): Promise<ElectrumClient> {
 		const client = new ElectrumClient(
-			params.port,
-			params.host,
+			params.servers,
 			params.protocol,
 			params.callbacks,
 		);
 
 		return client.initElectrum(params.electrumConfig, params.persistencePolicy);
+	}
+
+	/**
+	 * Gets the current server descriptor
+	 */
+	getCurrentServer(): ServerDescriptor {
+		return this.servers[this.currentServerIndex]!;
+	}
+
+	/**
+	 * Gets all available servers
+	 */
+	getAllServers(): ServerDescriptor[] {
+		return this.servers;
 	}
 
 	/**
@@ -114,14 +145,56 @@ export class ElectrumClient extends Client {
 		return this;
 	}
 
+	/**
+	 * Connects to the current server or tries the next one if connection fails
+	 */
+	protected async connect(): Promise<void> {
+		let lastError: Error | null = null;
+		const initialIndex = this.currentServerIndex;
+		let attempts = 0;
+
+		while (attempts < this.servers.length) {
+			const server = this.servers[this.currentServerIndex];
+			this.host = server!.host;
+			this.port = server!.port;
+
+			try {
+				this.log(`Attempting to connect to ${server!.host}:${server!.port}`);
+				await super.connect();
+				this.log(`Connected to ${server!.host}:${server!.port}`);
+				return;
+			} catch (error) {
+				lastError = error as Error;
+				this.log(`Connection failed to ${server!.host}:${server!.port}: ${error}`);
+				this.currentServerIndex = (this.currentServerIndex + 1) % this.servers.length;
+				attempts++;
+
+				// If we've tried all servers, wait before retrying
+				if (this.currentServerIndex === initialIndex) {
+					await new Promise(resolve => 
+						setTimeout(resolve, this.persistencePolicy.retryPeriod)
+					);
+				}
+			}
+		}
+
+		throw lastError || new Error("No servers available to connect to");
+	}
+
 	protected async request<T>(method: string, params: ElectrumRequestParams<T>) {
 		this.timeLastCall = Date.now();
 
-		const response = await super.request<T>(method, params);
-
-		this.keepAlive();
-
-		return response;
+		try {
+			const response = await super.request<T>(method, params);
+			this.keepAlive();
+			return response;
+		} catch (error) {
+			// If request fails, try to reconnect to another server
+			this.log(`Request failed, attempting to reconnect: ${error}`);
+			await this.reconnect();
+			// Retry the request on the new connection
+			return super.request<T>(method, params);
+		}
 	}
 
 	protected async requestBatch<T>(
@@ -131,11 +204,17 @@ export class ElectrumClient extends Client {
 	) {
 		this.timeLastCall = Date.now();
 
-		const response = await super.requestBatch<T>(method, params, secondParam);
-
-		this.keepAlive();
-
-		return response;
+		try {
+			const response = await super.requestBatch<T>(method, params, secondParam);
+			this.keepAlive();
+			return response;
+		} catch (error) {
+			// If request fails, try to reconnect to another server
+			this.log(`Batch request failed, attempting to reconnect: ${error}`);
+			await this.reconnect();
+			// Retry the request on the new connection
+			return super.requestBatch<T>(method, params, secondParam);
+		}
 	}
 
 	protected onClose(): void {
@@ -213,8 +292,12 @@ export class ElectrumClient extends Client {
 				() => Promise.resolve(this); // dirty hack to make it stop reconnecting
 	}
 
-	private reconnect(): Promise<ElectrumClient> {
+	private async reconnect(): Promise<ElectrumClient> {
 		this.log("Electrum attempting reconnect...");
+
+		// Move to next server
+		this.currentServerIndex = (this.currentServerIndex + 1) % this.servers.length;
+		this.log(`Trying next server: ${this.getCurrentServer().host}:${this.getCurrentServer().port}`);
 
 		this.initSocket();
 

@@ -35,3 +35,8 @@ export type ElectrumRequestParams<T> = Array<
 >;
 
 export type ElectrumRequestBatchParams = number | string | boolean | undefined;
+
+export interface ServerDescriptor {
+	host: string;
+	port: number;
+}

@@ -23,8 +23,8 @@ export abstract class Client {
 	private status: 0 | 1;
 	private readonly protocol: Protocol;
 	private conn: net.Socket | tls.TLSSocket | undefined;
-	private readonly host: string;
-	private readonly port: number;
+	protected host: string;
+	protected port: number;
 	private readonly onErrorCallback: ((e: Error) => void) | null;
 
 	protected constructor(
