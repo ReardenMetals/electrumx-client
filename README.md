@@ -1,27 +1,31 @@
 # electrumx-client
+
 Efficient and no-dependency Electrum Protocol client for Node.js.
-Updated protocol support to v1.4.3 
+Updated protocol support to v1.4.3
 This library uses ESModules, Node.js v18 or higher is required.
 
 # Forked from
-* https://github.com/Dojo-Open-Source-Project/electrum-client.git
 
+- https://github.com/Dojo-Open-Source-Project/electrum-client.git
 
 # Based on
-* https://github.com/mempool/electrum-client
-* https://github.com/you21979/node-electrum-client
-* https://github.com/7kharov/node-electrum-client
-* https://github.com/BlueWallet/rn-electrum-client
+
+- https://github.com/mempool/electrum-client
+- https://github.com/you21979/node-electrum-client
+- https://github.com/7kharov/node-electrum-client
+- https://github.com/BlueWallet/rn-electrum-client
 
 # Features
-* No dependencies
-* Persistence (ping strategy and reconnection)
-* Batch requests
-* Promise API
-* Fully typed (Typescript)
+
+- No dependencies
+- Persistence (ping strategy and reconnection)
+- Batch requests
+- Promise API
+- Fully typed (Typescript)
 
 ## Protocol spec
-* https://electrum-protocol.readthedocs.io/en/latest
+
+- https://electrum-protocol.readthedocs.io/en/latest
 
 ## Usage
 
@@ -30,8 +34,10 @@ import {ElectrumClient} from "electrumx-client";
 
 const run = async () => {
     const tcpClient = await ElectrumClient.createClient({
-        port: 60001,
-        host: "btc.electroncash.dk",
+        servers: [{
+            port: 60001,
+            host: "btc.electroncash.dk",
+        }]
         protocol: "tcp",
         electrumConfig: { client: "electrum-client-js", version: ["1.4.3"] },
         persistencePolicy: { retryPeriod: 2000 },
